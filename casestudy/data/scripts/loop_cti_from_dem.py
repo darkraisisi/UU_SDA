@@ -1,13 +1,7 @@
-"""
-Model exported as python.
-Name : cti_from_dem
-Group : dem
-With QGIS : 32204
-"""
-import sys
-sys.path.insert(0,"/usr/lib/python3/dist-packages")
-
-# export LD_LIBRARY_PATH=/<qgispath>/lib
+from glob import glob
+from multiprocessing.pool import ThreadPool as Pool
+from qgis.core import QgsRasterLayer, QgsProject
+from PyQt5.QtCore import QFileInfo
 
 from qgis.core import QgsProcessing
 from qgis.core import QgsProcessingAlgorithm
@@ -103,7 +97,7 @@ class Cti_from_dem(QgsProcessingAlgorithm):
             'EXPRESSION': f'ln( ("\'Contributing Area\' from algorithm \'Flow accumulation (qm of esp)\'@1 * {parameters["resolution"]} * {parameters["resolution"]}) / tan("\'Output\' from algorithm \'Degrees to Radians - Raster calculator\'@1"))',
             'EXTENT': None,
             'LAYERS': [outputs['DegreesToRadiansRasterCalculator']['OUTPUT'],outputs['FlowAccumulationQmOfEsp']['FLOW']],
-            'OUTPUT': parameters['Twi']
+            'OUTPUT': parameters['Name']
         }
         outputs['TwiRasterCalculator'] = processing.run('qgis:rastercalculator', alg_params, context=context, feedback=feedback, is_child_algorithm=True)
         results['Twi'] = outputs['TwiRasterCalculator']['OUTPUT']
@@ -124,9 +118,29 @@ class Cti_from_dem(QgsProcessingAlgorithm):
     def createInstance(self):
         return Cti_from_dem()
 
-#if __name__ == "__main__" or __name__ == "__console__":
-#    mdl = Cti_from_dem()
-#    x = mdl.displayName()
-#    print(x)
-#    mdl.initAlgorithm()
-#    mdl.processAlgorithm()
+def load_and_add_raster(raster):
+    model = Cti_from_dem()
+    model.initAlgorithm()
+
+    # Check if string is provided
+    fileInfo = QFileInfo(raster)
+    path = fileInfo.filePath()
+    baseName = fileInfo.baseName()
+
+    layer = QgsRasterLayer(path, baseName)
+    print(baseName)
+    params = {
+        'dem': layer,
+        'Name': f''
+    }
+    model.processAlgorithm(params, None, None)
+
+
+# Execution
+rasters = glob('Documents/uu/UU_SDA/casestudy/data/datasets/height/*.tif')
+rasters = rasters[:10]
+print(rasters)
+n_cores = 2
+
+with Pool(processes=n_cores) as pool:
+    pool.map(load_and_add_raster, rasters)
